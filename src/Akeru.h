@@ -32,9 +32,17 @@
   #ifdef CLION
     #include <src/SoftwareSerial.h>
   #else  //  CLION
-		#ifndef BEAN_BEAN_BEAN_H
-    	#include <SoftwareSerial.h>
-		#endif  //  BEAN_BEAN_BEAN_H
+    #if defined(ARDUINO_ARCH_SAMD)
+      // SAMD boards do not have a standard SoftwareSerial library, but we can 
+      // import a 3rd party one
+      #include "SamdSoftwareSerial.h"
+    #elif defined(BEAN_BEAN_BEAN_H)
+      // Bean+ firmware 0.6.1 can't receive serial data properly. We provide
+      // an alternative class BeanSoftwareSerial to work around this.
+      // See SIGFOX.h.
+    #else
+      #include <SoftwareSerial.h>
+    #endif // BEAN_BEAN_BEAN_H
   #endif  //  CLION
 
 #else  //  ARDUINO
