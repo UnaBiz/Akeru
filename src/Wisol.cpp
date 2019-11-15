@@ -28,6 +28,7 @@
 #define CMD_GET_VOLTAGE "AT$V?"  //  Get the module voltage.
 #define CMD_RESET "AT$P=0"  //  Software reset.
 #define CMD_SLEEP "AT$P=1"  //  TODO: Switch to sleep mode : consumption is < 1.5uA
+#define CMD_DEEPSLEEP "AT$P=2"
 #define CMD_WAKEUP "AT$P=0"  //  TODO: Switch back to normal mode : consumption is 0.5 mA
 #define CMD_END "\r"
 #define CMD_RCZ1 "AT$IF=868130000"  //  EU / RCZ1 Frequency
@@ -256,7 +257,7 @@ bool Wisol::getVoltage(float &voltage) {
 }
 
 bool Wisol::setSleep() {
-  if (!sendCommand(String(CMD_SLEEP) + CMD_END, 1, data, markers)) return false;
+  if (!sendCommand(String(CMD_DEEPSLEEP) + CMD_END, 1, data, markers)) return false;
   return true;
 }
 
