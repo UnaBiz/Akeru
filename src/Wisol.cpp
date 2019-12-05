@@ -113,10 +113,18 @@ bool Wisol::sendBuffer(const String &buffer, const unsigned long timeout,
       //  echoReceive.concat(toHex((char) rxChar) + ' ');
       if (rxChar == -1) continue;
       if (rxChar == END_OF_RESPONSE) {
-        if (actualMarkerCount < markerPosMax)
+        if (actualMarkerCount < markerPosMax) {
           markerPos[actualMarkerCount] = response.length();  //  Remember the marker pos.
+        }
         actualMarkerCount++;  //  Count the number of end markers.
-        if (actualMarkerCount >= expectedMarkerCount) break;  //  Seen all markers already.
+        if (actualMarkerCount >= expectedMarkerCount) {
+          break;  //  Seen all markers already.
+        }
+        if ( response.equals("ERR_SFX_ERR_SEND_FRAME_WAIT_TIMEOUT") ) {
+          // When the module reports a timeout, stop waiting and return so that we do not waste power
+          Serial.println("Received timeout response from module");
+          break;
+        }
       } else {
         // log2(F("rxChar "), rxChar);
         response.concat(String((char) rxChar));
