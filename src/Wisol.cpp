@@ -506,7 +506,7 @@ bool Wisol::begin() {
     } else if (
       country == COUNTRY_FR
       || country == COUNTRY_OM
-      || country == COUNTRY_SA) {  //  Set France frequency (RCZ1).
+      || country == COUNTRY_ZA) {  //  Set France frequency (RCZ1).
       if (!setFrequencyETSI(result)) continue;
     } else { //  Rest of the world runs on RCZ4.
       if (!setFrequencySG(result)) continue;
