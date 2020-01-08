@@ -28,6 +28,7 @@
 #define CMD_GET_VOLTAGE "AT$V?"  //  Get the module voltage.
 #define CMD_RESET "AT$P=0"  //  Software reset.
 #define CMD_SLEEP "AT$P=1"  //  TODO: Switch to sleep mode : consumption is < 1.5uA
+#define CMD_DEEPSLEEP "AT$P=2"
 #define CMD_WAKEUP "AT$P=0"  //  TODO: Switch back to normal mode : consumption is 0.5 mA
 #define CMD_END "\r"
 #define CMD_RCZ1 "AT$IF=868130000"  //  EU / RCZ1 Frequency
@@ -55,7 +56,7 @@ void sleep(int milliSeconds) {
 #endif // BEAN_BEAN_BEAN_H
 }
 
-bool Wisol::sendBuffer(const String &buffer, const int timeout,
+bool Wisol::sendBuffer(const String &buffer, const unsigned long timeout,
                        uint8_t expectedMarkerCount, String &response,
                        uint8_t &actualMarkerCount) {
   //  buffer contains a string of ASCII chars to be sent to the modem.
@@ -67,10 +68,23 @@ bool Wisol::sendBuffer(const String &buffer, const int timeout,
 
   actualMarkerCount = 0;
   //  Start serial interface.
-  serialPort->begin(MODEM_BITS_PER_SECOND);
-  sleep(200);
-  serialPort->flush();
-  serialPort->listen();
+  if(swSerialPort) {
+    swSerialPort->begin(MODEM_BITS_PER_SECOND);
+    sleep(200);
+    swSerialPort->flush();
+    swSerialPort->listen();
+  }
+  if(hwSerialPort) {
+    hwSerialPort->begin(MODEM_BITS_PER_SECOND);
+    sleep(200);
+    hwSerialPort->flush();
+  }
+
+  // Clear the RX buffer. flush() only clears the tx buffer.
+  while(serialPort->available()) {
+    serialPort->read();
+  }
+
 
   //  Send the buffer: need to write/read char by char because of echo.
   const char *rawBuffer = buffer.c_str();
@@ -99,17 +113,31 @@ bool Wisol::sendBuffer(const String &buffer, const int timeout,
       //  echoReceive.concat(toHex((char) rxChar) + ' ');
       if (rxChar == -1) continue;
       if (rxChar == END_OF_RESPONSE) {
-        if (actualMarkerCount < markerPosMax)
+        if (actualMarkerCount < markerPosMax) {
           markerPos[actualMarkerCount] = response.length();  //  Remember the marker pos.
+        }
         actualMarkerCount++;  //  Count the number of end markers.
-        if (actualMarkerCount >= expectedMarkerCount) break;  //  Seen all markers already.
+        if (actualMarkerCount >= expectedMarkerCount) {
+          break;  //  Seen all markers already.
+        }
+        if ( response.equals("ERR_SFX_ERR_SEND_FRAME_WAIT_TIMEOUT") ) {
+          // When the module reports a timeout, stop waiting and return so that we do not waste power
+          Serial.println("Received timeout response from module");
+          break;
+        }
       } else {
         // log2(F("rxChar "), rxChar);
         response.concat(String((char) rxChar));
       }
     }
   }
-  serialPort->end();
+  if(swSerialPort) {
+    swSerialPort->end();
+  }
+  if(hwSerialPort) {
+    hwSerialPort->end();
+  }
+
   //  Log the actual bytes sent and received.
   //log2(F(">> "), echoSend);
   //  if (echoReceive.length() > 0) { log2(F("<< "), echoReceive); }
@@ -233,6 +261,16 @@ bool Wisol::getVoltage(float &voltage) {
   if (!sendCommand(String(CMD_GET_VOLTAGE) + CMD_END, 1, data, markers)) return false;
   voltage = data.toFloat() / 1000.0;
   log2(F(" - Wisol.getVoltage: returned "), voltage);
+  return true;
+}
+
+bool Wisol::setSleep() {
+  if (!sendCommand(String(CMD_DEEPSLEEP) + CMD_END, 1, data, markers)) return false;
+  return true;
+}
+
+bool Wisol::setWakeup() {
+  if (!sendCommand(String(CMD_WAKEUP) + CMD_END, 1, data, markers)) return false;
   return true;
 }
 
@@ -406,7 +444,23 @@ Wisol::Wisol(Country country0, bool useEmulator0, const String device0, bool ech
   //  Bean+ firmware 0.6.1 can't receive serial data properly. We provide
   //  an alternative class BeanSoftwareSerial to work around this.
   //  For Bean, SoftwareSerial is a #define alias for BeanSoftwareSerial.
-  serialPort = new SoftwareSerial(rx, tx);
+  swSerialPort = new SoftwareSerial(rx, tx);
+  serialPort = swSerialPort;
+  if (echo) echoPort = &Serial;
+  else echoPort = &nullPort;
+  lastEchoPort = &Serial;
+}
+
+Wisol::Wisol(Country country0, bool useEmulator0, const String device0, bool echo,
+                         HardwareSerial *serial) {
+  //  Default to no echo.
+  zone = 4;  //  RCZ4
+  country = country0;
+  useEmulator = useEmulator0;
+  device = device0;
+  // Use the hardware serial that has been passed as a parameter
+  hwSerialPort = serial;
+  serialPort = hwSerialPort;
   if (echo) echoPort = &Serial;
   else echoPort = &nullPort;
   lastEchoPort = &Serial;
@@ -452,7 +506,7 @@ bool Wisol::begin() {
     } else if (
       country == COUNTRY_FR
       || country == COUNTRY_OM
-      || country == COUNTRY_SA) {  //  Set France frequency (RCZ1).
+      || country == COUNTRY_ZA) {  //  Set France frequency (RCZ1).
       if (!setFrequencyETSI(result)) continue;
     } else { //  Rest of the world runs on RCZ4.
       if (!setFrequencySG(result)) continue;

@@ -16,7 +16,7 @@ enum Country {
   COUNTRY_JP = 'J'+('P' << 8),  //  Japan: RCZ3
   COUNTRY_OM = 'O'+('M' << 8),  //  Oman: RCZ1
   COUNTRY_NZ = 'N'+('Z' << 8),  //  New Zealand: RCZ4
-  COUNTRY_SA = 'S'+('A' << 8),  //  South Africa: RCZ1
+  COUNTRY_ZA = 'Z'+('A' << 8),  //  South Africa: RCZ1
   COUNTRY_SG = 'S'+('G' << 8),  //  Singapore: RCZ4
   COUNTRY_US = 'U'+('S' << 8),  //  USA: RCZ2
   COUNTRY_TW = 'T'+('W' << 8),  //  Taiwan: RCZ4
